@@ -11,14 +11,15 @@ pkgInit = function()
   #library("cowplot")
   #library("UpSetR")
   #library("venneuler")
-  library("XLConnect")
+  library("readxl")
   library("reshape2")
+  library("dplyr")
   
   # specify excel file
-  excel.file = file.path("GitHub/AVREval/AVR_data.xlsx")
+  excel.file = file.path("AVR_data.xlsx")
   
   # import all data
-  assign("df.all_data", readWorksheetFromFile(excel.file, sheet=1), envir = .GlobalEnv)
+  assign("df.all_data", data.frame(read_xlsx(excel.file, sheet=1)), envir = .GlobalEnv)
   
   # read patient number
   assign("NUM_PAT", nrow(df.all_data), envir = .GlobalEnv)
@@ -26,10 +27,12 @@ pkgInit = function()
 
 sort = function()
 {
+  assign("df.all_data", arrange(df.all_data, Patient_ID), envir = .GlobalEnv)
   df.unique = df.linked1 = df.linked2 = data.frame(df.all_data[1,])
   
   i = j = k = 1
   for(pat in 1:(NUM_PAT-1)){
+    print(pat)
     linked = FALSE
     id = df.all_data[pat,"Patient_ID"]
     
@@ -156,3 +159,101 @@ byBrand = function()
   }
   assign("df.by_brand", df.by_brand, envir = .GlobalEnv)
 }
+
+compByBrand = function()
+{
+  df.comp_by_brand = data.frame("brand" = c("CE", "CE", "SJM.Epic", "SJM.Epic", "SJM.Trifecta", "SJM.Trifecta", "Mechanical", "Mechanical"), 
+                           "group" = c("remaining", "explants", "remaining", "explants", "remaining", "explants", "remaining", "explants"),
+                           "OpComp" = c(0,0,0,0), "CardiacComp" = c(0,0,0,0), "NeuroComp" = c(0,0,0,0), "PulmComp" = c(0,0,0,0),
+                           "longVent" = c(0,0,0,0), "Pneumonia" = c(0,0,0,0), "Reintubation" = c(0,0,0,0), "AnyComp" = c(0,0,0,0), check.names = F)
+  
+  for(pat in 1:NUM_unique){
+    for(comp in c("OpComp", "CardiacComp", "NeuroComp", "PulmComp", "longVent", "Pneumonia", "Reintubation", "AnyComp")){
+      if((!is.na(df.unique[pat,comp])) && (df.unique[pat,comp] == "Yes")){
+        if(length(grep("CE ", df.unique[pat,"avImp"])) == 1){
+          df.comp_by_brand[1,comp] = df.comp_by_brand[1,comp] + 1
+        }
+        else if(length(grep("Epic", df.unique[pat,"avImp"])) == 1){
+          df.comp_by_brand[3,comp] = df.comp_by_brand[3,comp] + 1
+        }
+        else if(length(grep("Tri", df.unique[pat,"avImp"])) == 1){
+          df.comp_by_brand[5,comp] = df.comp_by_brand[5,comp] + 1
+        }
+        else if(df.unique[pat,"avType"] == "M"){
+          df.comp_by_brand[7,comp] = df.comp_by_brand[7,comp] + 1
+        }
+      }
+    }
+  }
+  
+  for(pat in 1:NUM_linked){
+    for(comp in c("OpComp", "CardiacComp", "NeuroComp", "PulmComp", "longVent", "Pneumonia", "Reintubation", "AnyComp")){
+      if((!is.na(df.linked1[pat,comp])) && (df.linked1[pat,comp] == "Yes")){
+        if(length(grep("CE ", df.linked1[pat,"avImp"])) == 1){
+          df.comp_by_brand[2,comp] = df.comp_by_brand[2,comp] + 1
+        }
+        else if(length(grep("Epic", df.linked1[pat,"avImp"])) == 1){
+          df.comp_by_brand[4,comp] = df.comp_by_brand[4,comp] + 1
+        }
+        else if(length(grep("Tri", df.linked1[pat,"avImp"])) == 1){
+          df.comp_by_brand[6,comp] = df.comp_by_brand[6,comp] + 1
+        }
+        else if(df.linked1[pat,"avType"] == "M"){
+          df.comp_by_brand[8,comp] = df.comp_by_brand[8,comp] + 1
+        }
+      }
+    }
+  }
+  
+  assign("df.comp_by_brand", df.comp_by_brand, envir = .GlobalEnv)  
+}
+
+preOpByBrand = function()
+{
+  df.preop_by_brand = data.frame("brand" = c("CE", "CE", "SJM.Epic", "SJM.Epic", "SJM.Trifecta", "SJM.Trifecta", "Mechanical", "Mechanical"), 
+                                "group" = c("remaining", "explants", "remaining", "explants", "remaining", "explants", "remaining", "explants"),
+                                "Smokhx"=0,	"Smokcurr"=0,	"Diabetes"=0,	"PreopRI"=0,	"PreopRF"=0,	"Preopdial"=0,	
+                                "Pulmtens"=0,	"CVA"=0,	"Endocard"=0,	"EndocardAct"=0,	"EndocardTreat"=0, "cvd"=0,
+                                check.names = F)
+  
+  for(pat in 1:NUM_unique){
+    for(comp in c("Smokhx",	"Smokcurr",	"Diabetes",	"PreopRI",	"PreopRF",	"Preopdial", "Pulmtens",	"CVA", "Endocard",	"EndocardAct",	"EndocardTreat",	"cvd")){
+      if((!is.na(df.unique[pat,comp])) && (df.unique[pat,comp] == "Yes")){
+        if(length(grep("CE ", df.unique[pat,"avImp"])) == 1){
+          df.preop_by_brand[1,comp] = df.preop_by_brand[1,comp] + 1
+        }
+        else if(length(grep("Epic", df.unique[pat,"avImp"])) == 1){
+          df.preop_by_brand[3,comp] = df.preop_by_brand[3,comp] + 1
+        }
+        else if(length(grep("Tri", df.unique[pat,"avImp"])) == 1){
+          df.preop_by_brand[5,comp] = df.preop_by_brand[5,comp] + 1
+        }
+        else if(df.unique[pat,"avType"] == "M"){
+          df.preop_by_brand[7,comp] = df.preop_by_brand[7,comp] + 1
+        }
+      }
+    }
+  }
+  
+  for(pat in 1:NUM_linked){
+    for(comp in c("Smokhx",	"Smokcurr",	"Diabetes",	"PreopRI",	"PreopRF",	"Preopdial", "Pulmtens",	"CVA", "Endocard",	"EndocardAct",	"EndocardTreat",	"cvd")){
+      if((!is.na(df.linked1[pat,comp])) && (df.linked1[pat,comp] == "Yes")){
+        if(length(grep("CE ", df.linked1[pat,"avImp"])) == 1){
+          df.preop_by_brand[2,comp] = df.preop_by_brand[2,comp] + 1
+        }
+        else if(length(grep("Epic", df.linked1[pat,"avImp"])) == 1){
+          df.preop_by_brand[4,comp] = df.preop_by_brand[4,comp] + 1
+        }
+        else if(length(grep("Tri", df.linked1[pat,"avImp"])) == 1){
+          df.preop_by_brand[6,comp] = df.preop_by_brand[6,comp] + 1
+        }
+        else if(df.linked1[pat,"avType"] == "M"){
+          df.preop_by_brand[8,comp] = df.preop_by_brand[8,comp] + 1
+        }
+      }
+    }
+  }
+  
+  assign("df.preop_by_brand", df.preop_by_brand, envir = .GlobalEnv)  
+}
+
