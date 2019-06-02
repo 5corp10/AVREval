@@ -257,3 +257,86 @@ preOpByBrand = function()
   assign("df.preop_by_brand", df.preop_by_brand, envir = .GlobalEnv)  
 }
 
+
+failureRate = function()
+{
+  df.failure_rate = data.frame("implants"=c(0,0,0,0,0), "explants"=c(0,0,0,0,0), "valve.yrs"=c(0,0,0,0,0), "failure.rate"=c(0,0,0,0,0), "upper.CI"=c(0,0,0,0,0), "lower.CI"=c(0,0,0,0,0))
+  row.names(df.failure_rate) = c("CE", "SJM.Epic", "SJM.Trifecta", "Bioprosthetic", "Mechanical")
+  
+  df.failure_rate["CE","implants"] = sum(df.by_brand[1,3:13])
+  df.failure_rate["SJM.Epic","implants"] = sum(df.by_brand[3,3:13])
+  df.failure_rate["SJM.Trifecta","implants"] = sum(df.by_brand[5,3:13])
+  df.failure_rate["Bioprosthetic","implants"] = sum(df.failure_rate[1:3,"implants"])
+  df.failure_rate["Mechanical","implants"] = sum(df.by_brand[7,3:13])
+  
+  df.failure_rate["CE","explants"] = sum(df.by_brand[2,3:13])
+  df.failure_rate["SJM.Epic","explants"] = sum(df.by_brand[4,3:13])
+  df.failure_rate["SJM.Trifecta","explants"] = sum(df.by_brand[6,3:13])
+  df.failure_rate["Bioprosthetic","explants"] = sum(df.failure_rate[1:3,"explants"])
+  df.failure_rate["Mechanical","explants"] = sum(df.by_brand[8,3:13])
+  
+  for(pat in 1:NUM_unique){
+    valve_yrs = abs((as.POSIXct("2016-12-31 UTC", tz="UCT") - df.unique[pat,"ordate"]) / 365.2422)
+    
+    if(length(grep("CE ", df.unique[pat,"avImp"])) == 1){
+      df.failure_rate["CE","valve.yrs"] = df.failure_rate["CE","valve.yrs"] + valve_yrs
+    }
+    else if(length(grep("Epic", df.unique[pat,"avImp"])) == 1){
+      df.failure_rate["SJM.Epic","valve.yrs"] = df.failure_rate["SJM.Epic","valve.yrs"] + valve_yrs
+    }
+    else if(length(grep("Tri", df.unique[pat,"avImp"])) == 1){
+      df.failure_rate["SJM.Trifecta","valve.yrs"] = df.failure_rate["SJM.Trifecta","valve.yrs"] + valve_yrs
+    }
+    else if(df.unique[pat,"avType"] == "M"){
+      df.failure_rate["Mechanical","valve.yrs"] = df.failure_rate["Mechanical","valve.yrs"] + valve_yrs
+    }
+  }
+  
+  for(pat in 1:NUM_linked){
+    valve_yrs = abs((df.linked2[pat,"ordate"] - df.linked1[pat,"ordate"]) / 365.2422)
+    
+    if(length(grep("CE ", df.linked1[pat,"avImp"])) == 1){
+      df.failure_rate["CE","valve.yrs"] = df.failure_rate["CE","valve.yrs"] + valve_yrs
+    }
+    else if(length(grep("Epic", df.linked1[pat,"avImp"])) == 1){
+      df.failure_rate["SJM.Epic","valve.yrs"] = df.failure_rate["SJM.Epic","valve.yrs"] + valve_yrs
+    }
+    else if(length(grep("Tri", df.linked1[pat,"avImp"])) == 1){
+      df.failure_rate["SJM.Trifecta","valve.yrs"] = df.failure_rate["SJM.Trifecta","valve.yrs"] + valve_yrs
+    }
+    else if(df.linked1[pat,"avType"] == "M"){
+      df.failure_rate["Mechanical","valve.yrs"] = df.failure_rate["Mechanical","valve.yrs"] + valve_yrs
+    }
+  }
+  
+  df.failure_rate["Bioprosthetic","valve.yrs"] = sum(df.failure_rate[1:3,"valve.yrs"])
+  
+  df.failure_rate["CE","failure.rate"] = df.failure_rate["CE","explants"] / df.failure_rate["CE","valve.yrs"]
+  df.failure_rate["SJM.Epic","failure.rate"] = df.failure_rate["SJM.Epic","explants"] / df.failure_rate["SJM.Epic","valve.yrs"]
+  df.failure_rate["SJM.Trifecta","failure.rate"] = df.failure_rate["SJM.Trifecta","explants"] / df.failure_rate["SJM.Trifecta","valve.yrs"]
+  df.failure_rate["Bioprosthetic","failure.rate"] = df.failure_rate["Bioprosthetic","explants"] / df.failure_rate["Bioprosthetic","valve.yrs"]
+  df.failure_rate["Mechanical","failure.rate"] = df.failure_rate["Mechanical","explants"] / df.failure_rate["Mechanical","valve.yrs"]
+  
+  # confidence intervals
+  
+  assign("df.failure_rate", df.failure_rate, envir = .GlobalEnv)
+  
+  # generate data frame to be graphed
+  df.results_graph = cbind(valve=row.names(df.failure_rate), failure.rate=df.failure_rate[,"failure.rate"])
+  #df.results_graph = within(df.results_graph,  failure.rate <- factor(failure.rate, levels=failure.rate))
+  print(df.results_graph)
+  
+  # melt
+  #df.melted = melt(df.results_graph, variable.name = "valve", value.name = "failure.rate")
+  # round hit rates to 2 sig figs
+  df.results_graph[,"failure.rate"] = round(as.double(df.results_graph[,"failure.rate"]), digits=4)
+  # add CI columns
+  
+  print(df.results_graph)
+  
+  ggplot(df.results_graph, aes(x=valve, y=failure.rate, fill=valve)) +
+    geom_bar(position = position_dodge(), stat = "identity") +
+    geom_text(aes(label = failure.rate, group = valve), size=6, hjust=0.5, vjust=5, position=position_dodge(0.9)) +
+    theme_bw(base_size = 22) +
+    theme(panel.border = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
+}
