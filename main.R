@@ -8,6 +8,7 @@ pkgInit = function()
   #library("devtools")
   #library("roxygen2")
   library("ggplot2")
+  library("ggfortify")
   #library("cowplot")
   #library("UpSetR")
   #library("venneuler")
@@ -339,4 +340,46 @@ failureRate = function()
     geom_text(aes(label = failure.rate, group = valve), size=6, hjust=0.5, vjust=5, position=position_dodge(0.9)) +
     theme_bw(base_size = 22) +
     theme(panel.border = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
+}
+
+kmCurve = function()
+{
+  library("survival")
+  library("survminer")
+  df.km_data_unique = data.frame(df.unique[,c("casenum", "Patient_ID", "age", "sex", "avImp", "avType")], 
+                                 "valve.yrs" = abs((as.POSIXct("2016-12-31 UTC", tz="UCT") - df.unique[,"ordate"]) / 365.2422), "status"=1)
+  df.km_data_linked = data.frame(df.linked1[,c("casenum", "Patient_ID", "age", "sex", "avImp", "avType")], 
+                                 "valve.yrs" = abs((df.linked2[,"ordate"] - df.linked1[,"ordate"]) / 365.2422), "status"=2)
+  df.km_data = rbind(df.km_data_unique, df.km_data_linked)
+  
+  i=0
+  for(pat in 1:nrow(df.km_data)){
+    if(length(grep("CE ", df.km_data[pat-i,"avImp"])) == 1){
+      df.km_data[pat-i,"avImp"] = "CE"
+    }
+    else if(length(grep("Epic", df.km_data[pat-i,"avImp"])) == 1){
+      df.km_data[pat-i,"avImp"] = "SJM Epic"
+    }
+    else if(length(grep("Tri", df.km_data[pat-i,"avImp"])) == 1){
+      df.km_data[pat-i,"avImp"] = "SJM Trifecta"
+    }
+    else if(df.km_data[pat-i,"avType"] == "M"){
+      df.km_data[pat-i,"avImp"] = "Mechanical"
+    }
+  }
+  df.km_data = rbind(df.km_data[which(df.km_data[,"avImp"] == "CE"), ],
+                     df.km_data[which(df.km_data[,"avImp"] == "SJM Epic"), ],
+                     df.km_data[which(df.km_data[,"avImp"] == "SJM Trifecta"), ],
+                     df.km_data[which(df.km_data[,"avType"] == "M"), ])
+  
+  df.km_data$SurvObj <- with(df.km_data, Surv(valve.yrs, status == 2))
+  
+  km.by.sex <- survfit(SurvObj ~ sex, data = df.km_data, conf.type = "log-log")
+  km.by.type <- survfit(SurvObj ~ avType, data = df.km_data, conf.type = "log-log")
+  km.by.brand <- survfit(SurvObj ~ avImp, data = df.km_data, conf.type = "log-log")
+  
+  
+  ggsurvplot(km.by.sex, xlab = "valve yrs", ylab = "probability of valve durability", risk.table = T, conf.int = T, pval = T, pval.coord = c(0, 0.9), ylim = c(0.85, 1))
+  ggsurvplot(km.by.type, xlab = "valve yrs", ylab = "probability of valve durability", risk.table = T, conf.int = T, pval = T, pval.coord = c(0, 0.9), ylim = c(0.85, 1))
+  ggsurvplot(km.by.brand, xlab = "valve yrs", ylab = "probability of valve durability", risk.table = T, conf.int = T, pval = T, pval.coord = c(0, 0.9), ylim = c(0.85, 1))
 }
