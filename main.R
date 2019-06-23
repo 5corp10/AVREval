@@ -346,40 +346,112 @@ kmCurve = function()
 {
   library("survival")
   library("survminer")
-  df.km_data_unique = data.frame(df.unique[,c("casenum", "Patient_ID", "age", "sex", "avImp", "avType")], 
+  df.km_dataunique = data.frame(df.unique[,c("casenum", "Patient_ID", "age", "sex", "avImp", "avType")], 
                                  "valve.yrs" = abs((as.POSIXct("2016-12-31 UTC", tz="UCT") - df.unique[,"ordate"]) / 365.2422), "status"=1)
-  df.km_data_linked = data.frame(df.linked1[,c("casenum", "Patient_ID", "age", "sex", "avImp", "avType")], 
+  df.km_datalinked = data.frame(df.linked1[,c("casenum", "Patient_ID", "age", "sex", "avImp", "avType")], 
                                  "valve.yrs" = abs((df.linked2[,"ordate"] - df.linked1[,"ordate"]) / 365.2422), "status"=2)
-  df.km_data = rbind(df.km_data_unique, df.km_data_linked)
+  df.km_data = rbind(df.km_dataunique, df.km_datalinked)
   
   i=0
   for(pat in 1:nrow(df.km_data)){
-    if(length(grep("CE ", df.km_data[pat-i,"avImp"])) == 1){
-      df.km_data[pat-i,"avImp"] = "CE"
+    if(length(grep("CE ", df.km_data[pat,"avImp"])) == 1){
+      df.km_data[pat,"avImp"] = "CE"
     }
-    else if(length(grep("Epic", df.km_data[pat-i,"avImp"])) == 1){
-      df.km_data[pat-i,"avImp"] = "SJM Epic"
+    else if(length(grep("Epic", df.km_data[pat,"avImp"])) == 1){
+      df.km_data[pat,"avImp"] = "SJM.Epic"
     }
-    else if(length(grep("Tri", df.km_data[pat-i,"avImp"])) == 1){
-      df.km_data[pat-i,"avImp"] = "SJM Trifecta"
+    else if(length(grep("Tri", df.km_data[pat,"avImp"])) == 1){
+      df.km_data[pat,"avImp"] = "SJM.Trifecta"
     }
-    else if(df.km_data[pat-i,"avType"] == "M"){
-      df.km_data[pat-i,"avImp"] = "Mechanical"
+    else if(df.km_data[pat,"avType"] == "M"){
+      df.km_data[pat,"avImp"] = "Mechanical"
     }
   }
   df.km_data = rbind(df.km_data[which(df.km_data[,"avImp"] == "CE"), ],
-                     df.km_data[which(df.km_data[,"avImp"] == "SJM Epic"), ],
-                     df.km_data[which(df.km_data[,"avImp"] == "SJM Trifecta"), ],
+                     df.km_data[which(df.km_data[,"avImp"] == "SJM.Epic"), ],
+                     df.km_data[which(df.km_data[,"avImp"] == "SJM.Trifecta"), ],
                      df.km_data[which(df.km_data[,"avType"] == "M"), ])
   
-  df.km_data$SurvObj <- with(df.km_data, Surv(valve.yrs, status == 2))
+  df.km_data = df.km_data %>% mutate(ifelse(sex=="Male", 1, 2))
+  df.km_data = df.km_data %>% mutate(ifelse(avType=="B", 1, 2))
+  df.km_data = df.km_data %>% mutate(ifelse(avImp=="CE", 1, ifelse(avImp=="SJM.Epic", 2, ifelse(avImp=="SJM.Trifecta", 3, 4))))
+  df.km_data = df.km_data[,-c(4,5, 6)]
+  colnames(df.km_data)[6:8] = c("sex", "avType", "avImp")
+  
+  #df.km_data$SurvObj <- with(df.km_data, Surv(valve.yrs, status == 2))
   
   km.by.sex <- survfit(SurvObj ~ sex, data = df.km_data, conf.type = "log-log")
   km.by.type <- survfit(SurvObj ~ avType, data = df.km_data, conf.type = "log-log")
   km.by.brand <- survfit(SurvObj ~ avImp, data = df.km_data, conf.type = "log-log")
   
   
-  ggsurvplot(km.by.sex, xlab = "valve yrs", ylab = "probability of valve durability", risk.table = T, conf.int = T, pval = T, pval.coord = c(0, 0.9), ylim = c(0.85, 1))
-  ggsurvplot(km.by.type, xlab = "valve yrs", ylab = "probability of valve durability", risk.table = T, conf.int = T, pval = T, pval.coord = c(0, 0.9), ylim = c(0.85, 1))
-  ggsurvplot(km.by.brand, xlab = "valve yrs", ylab = "probability of valve durability", risk.table = T, conf.int = T, pval = T, pval.coord = c(0, 0.9), ylim = c(0.85, 1))
-}
+  ggsurvplot(km.by.sex, xlab = "valve yrs", ylab = "probability of valve durability", legend.labs=c("Male", "Female"),
+             risk.table = T, conf.int = T, pval = T, pval.coord = c(0, 0.9), ylim = c(0.85, 1))
+  ggsurvplot(km.by.type, xlab = "valve yrs", ylab = "probability of valve durability", legend.labs=c("B", "M"),
+             risk.table = T, conf.int = T, pval = T, pval.coord = c(0, 0.9), ylim = c(0.85, 1))
+  ggsurvplot(km.by.brand, xlab = "valve yrs", ylab = "probability of valve durability", legend.labs=c("CE", "SJM Epic", "SJM Trifecta", "Mechanical"),
+             risk.table = T, conf.int = T, pval = T, pval.coord = c(0, 0.9), ylim = c(0.85, 1))
+  
+  #plot hazard curves
+  ggsurvplot(km.by.sex, xlab = "valve yrs", ylab = "probability of valve failure", legend.labs=c("Male", "Female"),
+             risk.table = T, conf.int = T, pval = T, pval.coord = c(0, 0.1), ylim = c(0, 0.15), fun="cumhaz")
+  ggsurvplot(km.by.type, xlab = "valve yrs", ylab = "probability of valve failure", legend.labs=c("B", "M"),
+             risk.table = T, conf.int = T, pval = T, pval.coord = c(0, 0.1), ylim = c(0, 0.15), fun="cumhaz")
+  ggsurvplot(km.by.brand, xlab = "valve yrs", ylab = "probability of valve failure", legend.labs=c("CE", "SJM Epic", "SJM Trifecta", "Mechanical"),
+             risk.table = T, conf.int = T, pval = T, pval.coord = c(0, 0.1), ylim = c(0, 0.15), fun="cumhaz")
+  
+  #univariate cox regression analysis
+  covariates <- c("age", "sex", "avType", "avImp")
+  
+  univ_formulas <- sapply(covariates,
+                          function(x) as.formula(paste('Surv(valve.yrs, status)~', x)))
+  
+  univ_models <- lapply(univ_formulas, function(x){coxph(x, data = df.km_data)})
+  
+  univ_results <- lapply(univ_models,
+                         function(x){ 
+                           x <- summary(x)
+                           p.value<-signif(x$wald["pvalue"], digits=2)
+                           wald.test<-signif(x$wald["test"], digits=2)
+                           beta<-signif(x$coef[1], digits=2);#coeficient beta
+                           HR <-signif(x$coef[2], digits=2);#exp(beta)
+                           HR.confint.lower <- signif(x$conf.int[,"lower .95"],2)
+                           HR.confint.upper <- signif(x$conf.int[,"upper .95"],2)
+                           HR <- paste0(HR, " (", 
+                                        HR.confint.lower, "-", HR.confint.upper, ")")
+                           res<-c(beta, HR, wald.test, p.value)
+                           names(res)<-c("beta", "HR (95% CI for HR)", "wald.test", 
+                                         "p.value")
+                           return(res)
+                           #return(exp(cbind(coef(x),confint(x))))
+                         })
+  res <- t(as.data.frame(univ_results, check.names = FALSE))
+  as.data.frame(res)
+  
+  #res <- rbind(univ_results[[2]], univ_results[[3]], univ_results[[4]])
+  #rownames(res) = c("sex", "avType", "avImp")
+  
+  #multivariate cox regression analysis
+  res.cox <- coxph(Surv(valve.yrs, status) ~ age + sex + avImp, data = df.km_data)
+  res.cox <- coxph(Surv(valve.yrs, status==2) ~ age + sex, data = df.km_data)
+  
+  summary(res.cox)
+  
+  ggsurvplot(survfit(res.cox, data = df.km_data, conf.type = "log-log"), xlab = "valve yrs", ylab = "probability of valve durability", conf.int = T, ylim = c(0.85, 1))
+  
+  cox.by.sex = with(df.km_data, data.frame(age = rep(mean(age, na.rm=T), 2), sex = c(1,2), avImp = c(1,1)))
+  cox.by.sex = with(df.km_data, data.frame(age = rep(mean(age, na.rm=T), 2), sex = c(1,2)))
+  ggsurvplot(survfit(formula=res.cox, newdata=cox.by.sex, data = df.km_data, conf.type = "log-log"),
+             xlab = "valve yrs", ylab = "probability of valve durability", legend.labs=c("Male", "Female"), conf.int = T, ylim = c(0.85, 1))
+  
+  cox.by.type = with(df.km_data, data.frame(age = rep(mean(age, na.rm=T), 2), sex = c(1,1), avType = c(1,2)))
+  cox.by.type = with(df.km_data, data.frame(age = rep(mean(age, na.rm=T), 2), sex = c(1,1), avType = c(1,2), avImp = c(4,4)))
+  ggsurvplot(survfit(res.cox, newdata=cox.by.type, data = df.km_data, conf.type = "log-log"), 
+             xlab = "valve yrs", ylab = "probability of valve durability", legend.labs=c("B", "M"), conf.int = T, ylim = c(0.85, 1))
+  
+  cox.by.brand = with(df.km_data, data.frame(age = rep(mean(age, na.rm=T), 4), sex = c(1,1,1,1), avImp = c(1,2,3,4)))# avType = c(1,1,1,1), avImp = c(1,2,3,4)))
+  cox.by.brand = with(df.km_data, data.frame(age = rep(mean(age, na.rm=T), 4), sex = c(1,1,1,1), avImp = c(1,2,3,4)))# avType = c(2,2,2,2), avImp = c(1,2,3,4)))
+  ggsurvplot(survfit(res.cox, newdata=cox.by.brand, data = df.km_data, conf.type = "log-log"), 
+             xlab = "valve yrs", ylab = "probability of valve durability", legend.labs=c("CE", "SJM.Epic", "SJM.Trifecta", "Mechanical"), conf.int = T, ylim = c(0.85, 1))
+  
+  }
