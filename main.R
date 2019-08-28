@@ -39,14 +39,14 @@ sort = function()
     
     for(pat2 in (pat+1):NUM_PAT){
       if(id == df.all_data[pat2,"Patient_ID"]){
-        if(("First Op" == df.all_data[pat,"redoAny"]) && ("Reop #1" == df.all_data[pat2,"redoAny"])){
+        if("1st" == df.all_data[pat,"redoAny"]){
           df.linked1[j,] = df.all_data[pat,]
           df.linked2[j,] = df.all_data[pat2,]
           j = j + 1
           linked = TRUE
           break
         }
-        else if(("First Op" == df.all_data[pat2,"redoAny"]) && ("Reop #1" == df.all_data[pat,"redoAny"])){
+        else if("1st" == df.all_data[pat2,"redoAny"]){
           df.linked1[j,] = df.all_data[pat2,]
           df.linked2[j,] = df.all_data[pat,]
           j = j + 1
@@ -56,12 +56,12 @@ sort = function()
       }
     }
     
-    if(("First Op" == df.all_data[pat,"redoAny"]) && (linked == FALSE) && (!is.na(df.all_data[pat,"avType"]))){
+    if(("1st" == df.all_data[pat,"redoAny"]) && (linked == FALSE) && (!is.na(df.all_data[pat,"avType"]))){
       df.unique[i,] = df.all_data[pat,]
       i = i + 1
     }
   }
-  if("First Op" == df.all_data[NUM_PAT,"redoAny"]){
+  if("1st" == df.all_data[NUM_PAT,"redoAny"]){
     df.unique[i,] = df.all_data[NUM_PAT,]
   }
   
@@ -213,12 +213,12 @@ preOpByBrand = function()
 {
   df.preop_by_brand = data.frame("brand" = c("CE", "CE", "SJM.Epic", "SJM.Epic", "SJM.Trifecta", "SJM.Trifecta", "Mechanical", "Mechanical"), 
                                 "group" = c("remaining", "explants", "remaining", "explants", "remaining", "explants", "remaining", "explants"),
-                                "Smokhx"=0,	"Smokcurr"=0,	"Diabetes"=0,	"PreopRI"=0,	"PreopRF"=0,	"Preopdial"=0,	
+                                "Smokcurr"=0,	"Smokcurr"=0,	"Diabetes"=0,	"PreopRI"=0,	"PreopRF"=0,	"Preopdial"=0,	
                                 "Pulmtens"=0,	"CVA"=0,	"Endocard"=0,	"EndocardAct"=0,	"EndocardTreat"=0, "cvd"=0,
                                 check.names = F)
   
   for(pat in 1:NUM_unique){
-    for(comp in c("Smokhx",	"Smokcurr",	"Diabetes",	"PreopRI",	"PreopRF",	"Preopdial", "Pulmtens",	"CVA", "Endocard",	"EndocardAct",	"EndocardTreat",	"cvd")){
+    for(comp in c("Smokcurr",	"Smokcurr",	"Diabetes",	"PreopRI",	"PreopRF",	"Preopdial", "Pulmtens",	"CVA", "Endocard",	"EndocardAct",	"EndocardTreat",	"cvd")){
       if((!is.na(df.unique[pat,comp])) && (df.unique[pat,comp] == "Yes")){
         if(length(grep("CE ", df.unique[pat,"avImp"])) == 1){
           df.preop_by_brand[1,comp] = df.preop_by_brand[1,comp] + 1
@@ -237,7 +237,7 @@ preOpByBrand = function()
   }
   
   for(pat in 1:NUM_linked){
-    for(comp in c("Smokhx",	"Smokcurr",	"Diabetes",	"PreopRI",	"PreopRF",	"Preopdial", "Pulmtens",	"CVA", "Endocard",	"EndocardAct",	"EndocardTreat",	"cvd")){
+    for(comp in c("Smokcurr",	"Smokcurr",	"Diabetes",	"PreopRI",	"PreopRF",	"Preopdial", "Pulmtens",	"CVA", "Endocard",	"EndocardAct",	"EndocardTreat",	"cvd")){
       if((!is.na(df.linked1[pat,comp])) && (df.linked1[pat,comp] == "Yes")){
         if(length(grep("CE ", df.linked1[pat,"avImp"])) == 1){
           df.preop_by_brand[2,comp] = df.preop_by_brand[2,comp] + 1
@@ -342,7 +342,7 @@ failureRate = function()
     theme(panel.border = element_blank(), panel.grid.major = element_blank(), panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
 }
 
-generateSurvivalModels = function()
+generateSurvivalModels1 = function()
 {
   library("survival")
   library("survminer")
@@ -542,6 +542,137 @@ generateSurvivalModels = function()
   ggsurvplot(survfit(res.cox.b, newdata=cox.by.brand, data = df.surv_data_b, conf.type = "log-log"), 
              xlab = "valve yrs", ylab = "probability of valve durability", legend.labs=c("CE", "SJM.Epic", "SJM.Trifecta"), conf.int = T, ylim = c(0.85, 1))
 }
+generateSurvivalModels2 = function()
+{
+  library("survival")
+  library("survminer")
+  library("splines")
+
+  df.surv_data = rbind(data.frame(df.unique[,c("casenum", "Patient_ID", "ordate", "age", "sex", "Smokcurr", "avImp")], 
+                                  "valve.yrs" = as.double(abs((as.POSIXct("2016-12-31 UTC", tz="UCT") - df.unique$ordate) / 365.2422)), "status"=1),
+                       data.frame(df.linked1[,c("casenum", "Patient_ID", "ordate", "age", "sex", "Smokcurr", "avImp")], 
+                                  "valve.yrs" = as.double(abs((df.linked2[,"ordate"] - df.linked1[,"ordate"]) / 365.2422 / 24 / 3600)), "status"=2))
+  df.surv_data = df.surv_data[ -which(is.na(df.surv_data$sex)),]
+  df.surv_data = df.surv_data[ -which(df.surv_data$ordate < "2011-01-01 UTC"),]
+  
+  #df.surv_data = df.surv_data %>% filter(ordate > "2010-12-31 UTC")
+ 
+  for(pat in 1:nrow(df.surv_data)){
+    if(length(grep("CE ", df.surv_data[pat,"avImp"])) == 1){
+      df.surv_data[pat,"avImp"] = "CE"
+    }
+    else if(length(grep("Tri", df.surv_data[pat,"avImp"])) == 1){
+      df.surv_data[pat,"avImp"] = "SJM.Trifecta"
+    }
+  }
+  df.surv_data = rbind(df.surv_data[which(df.surv_data[,"avImp"] == "CE"), ],
+                       df.surv_data[which(df.surv_data[,"avImp"] == "SJM.Trifecta"), ])
+  
+  df.surv_data = df.surv_data %>% mutate(ifelse(sex=="Male", 1, 2))
+  df.surv_data = df.surv_data %>% mutate(ifelse(Smokcurr=="No", 1, 2))
+  df.surv_data = df.surv_data %>% mutate(ifelse(avImp=="CE", 1, 2))
+  
+  df.surv_data = df.surv_data[,-c(5, 6, 7)]
+  colnames(df.surv_data)[7:9] = c("sex", "Smokcurr", "avImp")
+  
+  #km curves
+  df.surv_data$SurvObj <- with(df.surv_data, Surv(valve.yrs, status == 2))
+  
+  km.by.sex <- survfit(SurvObj ~ sex, data = df.surv_data, conf.type = "log-log")
+  km.by.smok <- survfit(SurvObj ~ Smokcurr, data = df.surv_data, conf.type = "log-log")
+  km.by.brand <- survfit(SurvObj ~ avImp, data = df.surv_data, conf.type = "log-log")
+  
+  ggsurvplot(km.by.sex, xlab = "valve yrs", ylab = "probability of valve durability", legend.labs=c("Male", "Female"),
+             risk.table = T, conf.int = T, pval = T, pval.coord = c(0, 0.9), ylim = c(0.85, 1))
+  ggsurvplot(km.by.smok, xlab = "valve yrs", ylab = "probability of valve durability", legend.labs=c("Not a Current Smoker", "Current Smoker"),
+             risk.table = T, conf.int = T, pval = T, pval.coord = c(0, 0.9), ylim = c(0.85, 1))
+  ggsurvplot(km.by.brand, xlab = "valve yrs", ylab = "probability of valve durability", legend.labs=c("CE", "SJM Trifecta"),
+             risk.table = T, conf.int = T, pval = T, pval.coord = c(0, 0.9), ylim = c(0.85, 1))
+  
+  #hazard curves
+  ggsurvplot(km.by.sex, xlab = "valve yrs", ylab = "probability of re-do", legend.labs=c("Male", "Female"),
+             risk.table = T, conf.int = T, pval = T, pval.coord = c(0, 0.1), ylim = c(0, 0.15), fun="cumhaz")
+  ggsurvplot(km.by.smok, xlab = "valve yrs", ylab = "probability of re-do", legend.labs=c("Not a Current Smoker", "Current Smoker"),
+             risk.table = T, conf.int = T, pval = T, pval.coord = c(0, 0.1), ylim = c(0, 0.15), fun="cumhaz")
+  ggsurvplot(km.by.brand, xlab = "valve yrs", ylab = "probability of vre-do", legend.labs=c("CE", "SJM Trifecta"),
+             risk.table = T, conf.int = T, pval = T, pval.coord = c(0, 0.1), ylim = c(0, 0.15), fun="cumhaz")
+  
+  #univariate cox regression analysis
+  covariates <- c("age", "sex", "Smokcurr", "avImp")
+  
+  univ_formulas <- sapply(covariates,
+                            function(x) as.formula(paste('Surv(valve.yrs, status)~', x)))
+  
+  univ_models <- lapply(univ_formulas, function(x){coxph(x, data = df.surv_data)})
+  
+  univ_results <- lapply(univ_models,
+                           function(x){ 
+                             x <- summary(x)
+                             p.value<-signif(x$wald["pvalue"], digits=2)
+                             wald.test<-signif(x$wald["test"], digits=2)
+                             beta<-signif(x$coef[1], digits=2);#coeficient beta
+                             HR <-signif(x$coef[2], digits=2);#exp(beta)
+                             HR.confint.lower <- signif(x$conf.int[,"lower .95"],2)
+                             HR.confint.upper <- signif(x$conf.int[,"upper .95"],2)
+                             HR <- paste0(HR, " (", 
+                                          HR.confint.lower, "-", HR.confint.upper, ")")
+                             res<-c(beta, HR, wald.test, p.value)
+                             names(res)<-c("beta", "HR (95% CI for HR)", "wald.test", 
+                                           "p.value")
+                             return(res)
+                             #return(exp(cbind(coef(x),confint(x))))
+                           })
+  
+  res <- t(as.data.frame(univ_results, check.names = FALSE))
+  
+  as.data.frame(res)
+  
+  #multivariate cox regression analysis
+  res.cox <- coxph(Surv(valve.yrs, status) ~ age + sex + Smokcurr + avImp, data = df.surv_data)
+  
+  summary(res.cox)
+  
+  #test proportionality: if p < 0.05, then no proportionality
+  cox.zph = cox.zph(res.cox, transform="km", global=TRUE)
+  print(cox.zph)
+  
+  #slope of 0 implies proportionality
+  plot(cox.zph[1])
+  plot(cox.zph[2])
+  plot(cox.zph[3])
+  plot(cox.zph[4])
+  
+  #residuals
+  plot(df.surv_data[,"age"], resid(res.cox, type="score")[,1], ylab="Score Residuals", xlab="age")
+  plot(df.surv_data[,"sex"], resid(res.cox, type="score")[,2], ylab="Score Residuals", xlab="sex")
+  plot(df.surv_data[,"Smokcurr"], resid(res.cox, type="score")[,3], ylab="Score Residuals", xlab="Smokcurr")
+  plot(df.surv_data[,"avImp"], resid(res.cox, type="score")[,4], ylab="Score Residuals", xlab="avImp")
+  
+  
+  ggsurvplot(survfit(res.cox, data = df.surv_data, conf.type = "log-log"), xlab = "valve yrs", ylab = "probability of valve durability", conf.int = T, ylim = c(0.85, 1))
+  
+  cox.by.sex   = with(df.surv_data, data.frame(age = rep(mean(age), 2), sex = c(1,2), Smokcurr = c(1,1), avImp = c(1,1)))
+  cox.by.smok  = with(df.surv_data, data.frame(age = rep(mean(age), 2), sex = c(1,1), Smokcurr = c(1,2), avImp = c(1,1)))
+  cox.by.brand = with(df.surv_data, data.frame(age = rep(mean(age), 2), sex = c(1,1), Smokcurr = c(1,1), avImp = c(1,2)))
+  
+  ggsurvplot(survfit(res.cox, data=df.surv_data, newdata=cox.by.sex),
+             xlab = "valve yrs", ylab = "probability of valve durability", legend.labs=c("Male", "Female"), conf.int = F, ylim = c(0.95, 1))  
+  ggsurvplot(survfit(res.cox, data=df.surv_data, newdata=cox.by.smok),
+             xlab = "valve yrs", ylab = "probability of valve durability", legend.labs=c("Not a Current Smoker", "Current Smoker"), conf.int = F, ylim = c(0.95, 1))  
+  ggsurvplot(survfit(res.cox, data=df.surv_data, newdata=cox.by.brand),
+             xlab = "valve yrs", ylab = "probability of valve durability", legend.labs=c("CE", "SJM Trifecta"), conf.int = F, ylim = c(0.95, 1))  
+  }
+
+#iso_singles = function()
+#{
+#  df.surv_data_m %>% filter(ordate > "2010-12-31 UTC")
+#  df.surv_data_m_o
+#  df.surv_data_m_s
+#  df.surv_data_m_o_c
+#  df.surv_data_m_o_c
+#  df.surv_data_m_s_c
+#  df.surv_data_m_s_t
+#}
 
 qqPlot = function()
 {
@@ -553,4 +684,9 @@ qqPlot = function()
   
   qqnorm(df.surv_data_m$valve.yrs, main="qq plot: valve.yrs", ylab="valve.yrs (yrs)")
   qqline(df.surv_data_m$valve.yrs)
+  
+  qqnorm(df.surv_data$age, main="qq plot: age", ylab="age (yrs)")
+  qqline(df.surv_data$age)
+  qqnorm(df.surv_data$valve.yrs, main="qq plot: valve.yrs", ylab="valve.yrs (yrs)")
+  qqline(df.surv_data$valve.yrs)
 }
