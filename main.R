@@ -594,7 +594,7 @@ generateSurvivalModels2 = function()
              risk.table = T, conf.int = T, pval = T, pval.coord = c(0, 0.1), ylim = c(0, 0.15), fun="cumhaz")
   ggsurvplot(km.by.smok, xlab = "valve yrs", ylab = "probability of re-do", legend.labs=c("Not a Current Smoker", "Current Smoker"),
              risk.table = T, conf.int = T, pval = T, pval.coord = c(0, 0.1), ylim = c(0, 0.15), fun="cumhaz")
-  ggsurvplot(km.by.brand, xlab = "valve yrs", ylab = "probability of vre-do", legend.labs=c("CE", "SJM Trifecta"),
+  ggsurvplot(km.by.brand, xlab = "valve yrs", ylab = "probability of re-do", legend.labs=c("CE", "SJM Trifecta"),
              risk.table = T, conf.int = T, pval = T, pval.coord = c(0, 0.1), ylim = c(0, 0.15), fun="cumhaz")
   
   #univariate cox regression analysis
@@ -628,7 +628,7 @@ generateSurvivalModels2 = function()
   as.data.frame(res)
   
   #multivariate cox regression analysis
-  res.cox <- coxph(Surv(valve.yrs, status) ~ age + sex + Smokcurr + avImp, data = df.surv_data)
+  res.cox <- coxph(Surv(valve.yrs, status) ~ age + Smokcurr + avImp, data = df.surv_data)
   
   summary(res.cox)
   
@@ -663,16 +663,50 @@ generateSurvivalModels2 = function()
              xlab = "valve yrs", ylab = "probability of valve durability", legend.labs=c("CE", "SJM Trifecta"), conf.int = F, ylim = c(0.95, 1))  
   }
 
-#iso_singles = function()
-#{
-#  df.surv_data_m %>% filter(ordate > "2010-12-31 UTC")
-#  df.surv_data_m_o
-#  df.surv_data_m_s
-#  df.surv_data_m_o_c
-#  df.surv_data_m_o_c
-#  df.surv_data_m_s_c
-#  df.surv_data_m_s_t
-#}
+iso_singles = function()
+{
+  df.surv_data_m = df.surv_data %>% filter(sex == 1) 
+  df.surv_data_m$SurvObj <- with(df.surv_data_m, Surv(valve.yrs, status == 2))
+  ggsurvplot(survfit(SurvObj ~ avImp, data = df.surv_data_m, conf.type = "log-log"), 
+             xlab = "valve yrs", ylab = "probability of re-replacement in males", legend.labs=c("CE Perimount", "SJM Trifecta"), palette=c("#EF293D","#71277A"),
+             risk.table = F, conf.int = T, pval = F, pval.coord = c(0, 0.1), ylim = c(0, 0.15), fun="cumhaz",
+             size = 1.5, ggtheme= theme(text = element_text(size = 20), panel.background = element_rect(fill="white"), axis.line = element_line(color = "black")))
+  
+  df.surv_data_f = df.surv_data %>% filter(sex == 2)
+  df.surv_data_f$SurvObj <- with(df.surv_data_f, Surv(valve.yrs, status == 2))
+  ggsurvplot(survfit(SurvObj ~ avImp, data = df.surv_data_f, conf.type = "log-log"), 
+             xlab = "valve yrs", ylab = "probability of re-replacement in females", legend.labs=c("CE Perimount", "SJM Trifecta"), palette=c("#EF293D","#71277A"),
+             risk.table = F, conf.int = T, pval = F, pval.coord = c(0, 0.1), ylim = c(0, 0.15), fun="cumhaz",
+             size = 1.5, ggtheme= theme(text = element_text(size = 20), panel.background = element_rect(fill="white"), axis.line = element_line(color = "black")))
+  
+  df.surv_data_o = df.surv_data %>% filter(age >= 60)
+  df.surv_data_o$SurvObj <- with(df.surv_data_o, Surv(valve.yrs, status == 2))
+  ggsurvplot(survfit(SurvObj ~ avImp, data = df.surv_data_o, conf.type = "log-log"), 
+             xlab = "valve yrs", ylab = "probability of re-replacement at age >= 60", legend.labs=c("CE Perimount", "SJM Trifecta"), palette=c("#EF293D","#71277A"),
+             risk.table = F, conf.int = T, pval = F, pval.coord = c(0, 0.1), ylim = c(0, 0.15), fun="cumhaz",
+             size = 1.5, ggtheme= theme(text = element_text(size = 20), panel.background = element_rect(fill="white"), axis.line = element_line(color = "black")))
+  
+  df.surv_data_y = df.surv_data %>% filter(age < 60)
+  df.surv_data_y$SurvObj <- with(df.surv_data_y, Surv(valve.yrs, status == 2))
+  ggsurvplot(survfit(SurvObj ~ avImp, data = df.surv_data_y, conf.type = "log-log"), 
+             xlab = "valve yrs", ylab = "probability of re-replacement at age < 60", legend.labs=c("CE Perimount", "SJM Trifecta"), palette=c("#EF293D","#71277A"),
+             risk.table = F, conf.int = T, pval = F, pval.coord = c(0, 0.1), ylim = c(0, 0.15), fun="cumhaz",
+             size = 1.5, ggtheme= theme(text = element_text(size = 20), panel.background = element_rect(fill="white"), axis.line = element_line(color = "black")))
+
+  df.surv_data_s = df.surv_data %>% filter(Smokcurr == 1)
+  df.surv_data_s$SurvObj <- with(df.surv_data_s, Surv(valve.yrs, status == 2))
+  ggsurvplot(survfit(SurvObj ~ avImp, data = df.surv_data_s, conf.type = "log-log"), 
+             xlab = "valve yrs", ylab = "probability of re-replacement in non-smokers", legend.labs=c("CE Perimount", "SJM Trifecta"), palette=c("#EF293D","#71277A"),
+             risk.table = F, conf.int = T, pval = F, pval.coord = c(0, 0.1), ylim = c(0, 0.15), fun="cumhaz",
+             size = 1.5, ggtheme= theme(text = element_text(size = 20), panel.background = element_rect(fill="white"), axis.line = element_line(color = "black")))
+  
+  df.surv_data_n = df.surv_data %>% filter(Smokcurr == 2)
+  df.surv_data_n$SurvObj <- with(df.surv_data_n, Surv(valve.yrs, status == 2))
+  ggsurvplot(survfit(SurvObj ~ avImp, data = df.surv_data_n, conf.type = "log-log"), 
+             xlab = "valve yrs", ylab = "probability of re-replacement in smokers", legend.labs=c("CE Perimount", "SJM Trifecta"), palette=c("#EF293D","#71277A"),
+             risk.table = F, conf.int = T, pval = F, pval.coord = c(0, 0.1), ylim = c(0, 0.15), fun="cumhaz", 
+             size = 1.5, ggtheme= theme(text = element_text(size = 20), panel.background = element_rect(fill="white"), axis.line = element_line(color = "black")))
+}
 
 qqPlot = function()
 {
