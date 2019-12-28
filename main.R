@@ -665,6 +665,12 @@ generateSurvivalModels2 = function()
 
 iso_singles = function()
 {
+  df.surv_data$SurvObj <- with(df.surv_data, Surv(valve.yrs, status == 2))
+  ggsurvplot(survfit(SurvObj ~ avImp, data = df.surv_data, conf.type = "log-log"), 
+             xlab = "valve yrs", ylab = "probability of re-replacement in entire cohort", legend.labs=c("CE Perimount", "SJM Trifecta"), palette=c("#EF293D","#71277A"),
+             risk.table = F, conf.int = T, pval = T, pval.coord = c(0, 0.1), ylim = c(0, 0.15), fun="cumhaz",
+             size = 1.5, ggtheme= theme(text = element_text(size = 20), panel.background = element_rect(fill="white"), axis.line = element_line(color = "black")))
+  
   df.surv_data_m = df.surv_data %>% filter(sex == 1) 
   df.surv_data_m$SurvObj <- with(df.surv_data_m, Surv(valve.yrs, status == 2))
   ggsurvplot(survfit(SurvObj ~ avImp, data = df.surv_data_m, conf.type = "log-log"), 
